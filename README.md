@@ -60,9 +60,18 @@ Under the hood:
 
 ## Stack
 
-Go · Postgres + pgvector · River (Postgres job queue) · sqlc + pgx · Claude for extraction & reasoning · cross-encoder reranker · MCP
+| Layer | Choice |
+|---|---|
+| Service | Go · `net/http` + huma (OpenAPI) · official MCP Go SDK |
+| Storage | Postgres 17+ · pgvector (HNSW, `halfvec`) · native full-text search · `tstzrange` bitemporal columns |
+| Data access | pgx v5 + sqlc · goose migrations |
+| Background work | River (Postgres job queue, enqueued in the same transaction as `retain`) |
+| Models | Claude Haiku 5.5 for extraction · Claude Sonnet 5.5 for consolidation & reflect · Voyage embeddings & reranking |
+| Quality | testcontainers-go · LongMemEval eval harness · OpenTelemetry |
 
-One binary, one database: `docker compose up` and you're running.
+One binary, one database: `docker compose up` and you're running. No separate vector DB, graph DB, Redis or Kafka.
+
+See [docs/stack.md](docs/stack.md) for the reasoning behind each choice.
 
 ## Roadmap
 
