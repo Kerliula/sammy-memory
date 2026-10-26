@@ -96,3 +96,5 @@ Sammy stands on the shoulders of [Honcho](https://github.com/plastic-labs/honcho
 ## License
 
 [Apache-2.0](LICENSE)
+
+[![M8ven Score](https://m8ven.ai/badge/mcp/kerliula-sammy-memory-1qmbqj?v=847178a2a37aec817798cca3aad8729c)](https://m8ven.ai/mcp/kerliula-sammy-memory-1qmbqj?s=readme)
