@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"io/fs"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -24,7 +25,11 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 
 func migrateGoose(ctx context.Context, pool *pgxpool.Pool) error {
 	sqlDB := stdlib.OpenDBFromPool(pool)
-	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, sammydb.Migrations)
+	migrationsFS, err := fs.Sub(sammydb.Migrations, "migrations")
+	if err != nil {
+		return fmt.Errorf("sub migrations fs: %w", err)
+	}
+	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrationsFS)
 	if err != nil {
 		return fmt.Errorf("create goose provider: %w", err)
 	}
