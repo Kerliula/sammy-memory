@@ -1,0 +1,19 @@
+services:
+  db:
+    image: pgvector/pgvector:0.8.7-pg17
+    environment:
+      POSTGRES_USER: sammy
+      POSTGRES_PASSWORD: sammy
+      POSTGRES_DB: sammy
+    ports:
+      - "5432:5432"
+    volumes:
+      - sammy-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sammy -d sammy"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  sammy-pgdata:

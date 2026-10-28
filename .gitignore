@@ -1,0 +1,7 @@
+.idea/
+.env
+/sammy
+*.exe
+/bin/
+/dist/
+coverage.out
