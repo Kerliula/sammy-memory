@@ -30,7 +30,7 @@ func main() {
 func run(args []string) int {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "usage: sammy <serve|worker|migrate|eval>")
-		return 2
+		return exitUsage
 	}
 	var err error
 	switch args[0] {
@@ -42,16 +42,16 @@ func run(args []string) int {
 		err = runMigrate()
 	case "eval":
 		fmt.Fprintln(os.Stderr, "eval: not implemented")
-		return 1
+		return exitFailure
 	default:
 		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: sammy <serve|worker|migrate|eval>\n", args[0])
-		return 2
+		return exitUsage
 	}
 	if err != nil {
 		slog.Error("command failed", "command", args[0], "error", err)
-		return 1
+		return exitFailure
 	}
-	return 0
+	return exitSuccess
 }
 
 func runServe() error {
@@ -59,16 +59,20 @@ func runServe() error {
 	defer stop()
 
 	cfg, err := config.Load()
+
 	if err != nil {
 		return err
 	}
+
 	logger := cfg.Logger()
 	slog.SetDefault(logger)
 
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
+
 	if err != nil {
 		return err
 	}
+
 	defer pool.Close()
 
 	srv := &http.Server{
@@ -78,6 +82,7 @@ func runServe() error {
 	}
 
 	errCh := make(chan error, 1)
+
 	go func() {
 		logger.Info("serving", "addr", cfg.HTTPAddr)
 		errCh <- srv.ListenAndServe()
@@ -90,6 +95,7 @@ func runServe() error {
 		}
 		return err
 	case <-ctx.Done():
+		stop()
 		logger.Info("shutting down")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -124,10 +130,18 @@ func runWorker() error {
 	logger.Info("worker started")
 
 	<-ctx.Done()
+	stop() // a second Ctrl+C now kills the process instead of being swallowed
 	logger.Info("shutting down")
 	stopCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := client.Stop(stopCtx); err != nil {
+	if err := client.Stop(stopCtx); err == nil {
+		return nil
+	}
+	// Running jobs didn't finish in time: cancel their contexts and wait again.
+	logger.Warn("soft stop timed out, cancelling running jobs")
+	cancelCtx, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel2()
+	if err := client.StopAndCancel(cancelCtx); err != nil {
 		return fmt.Errorf("stop river client: %w", err)
 	}
 	return nil

@@ -1,4 +1,4 @@
-// Package server wires Sammy's HTTP API: net/http + huma v2.
+// Package server defines the HTTP requests Sammy can handle.
 package server
 
 import (
@@ -10,26 +10,27 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Server holds the dependencies the HTTP handlers need.
 type Server struct {
-	pool *pgxpool.Pool
+	database *pgxpool.Pool
 }
 
-// New returns an http.Handler serving the huma API (including the
-// OpenAPI 3.1 spec and docs huma mounts from the config) on a stdlib mux.
-func New(pool *pgxpool.Pool) http.Handler {
-	mux := http.NewServeMux()
-	api := humago.New(mux, huma.DefaultConfig("Sammy", "0.1.0"))
-	s := &Server{pool: pool}
+func New(database *pgxpool.Pool) http.Handler {
+	router := http.NewServeMux()
 
-	huma.Register(api, huma.Operation{
+	apiSettings := huma.DefaultConfig("Sammy", "0.1.0")
+	api := humago.New(router, apiSettings)
+	server := &Server{database: database}
+
+	healthRoute := huma.Operation{
 		OperationID: "healthz",
 		Method:      http.MethodGet,
 		Path:        "/healthz",
 		Summary:     "Health check",
-	}, s.healthz)
+	}
 
-	return mux
+	huma.Register(api, healthRoute, server.checkHealth)
+
+	return router
 }
 
 type healthOutput struct {
@@ -38,11 +39,15 @@ type healthOutput struct {
 	}
 }
 
-func (s *Server) healthz(ctx context.Context, _ *struct{}) (*healthOutput, error) {
-	if err := s.pool.Ping(ctx); err != nil {
+func (server *Server) checkHealth(ctx context.Context, _ *struct{}) (*healthOutput, error) {
+	err := server.database.Ping(ctx)
+
+	if err != nil {
 		return nil, huma.Error503ServiceUnavailable("database unavailable")
 	}
-	out := &healthOutput{}
-	out.Body.Status = "ok"
-	return out, nil
+
+	response := &healthOutput{}
+	response.Body.Status = "ok"
+
+	return response, nil
 }

@@ -25,6 +25,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 
 func migrateGoose(ctx context.Context, pool *pgxpool.Pool) error {
 	sqlDB := stdlib.OpenDBFromPool(pool)
+	defer func() { _ = sqlDB.Close() }() // leaves the pgx pool open
 	migrationsFS, err := fs.Sub(sammydb.Migrations, "migrations")
 	if err != nil {
 		return fmt.Errorf("sub migrations fs: %w", err)

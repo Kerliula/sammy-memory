@@ -4,6 +4,7 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -38,6 +39,7 @@ func NewWorkers() *river.Workers {
 // NewWorkerClient builds a River client that both enqueues and works jobs.
 func NewWorkerClient(pool *pgxpool.Pool) (*river.Client[pgx.Tx], error) {
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Logger: slog.Default(), // River's own default is a text logger on stdout
 		Queues: map[string]river.QueueConfig{
 			river.QueueDefault: {MaxWorkers: 10},
 		},
