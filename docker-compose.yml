@@ -1,0 +1,25 @@
+services:
+  db:
+    image: pgvector/pgvector:0.8.7-pg18
+    environment:
+      POSTGRES_USER: sammy
+      POSTGRES_PASSWORD: sammy
+      POSTGRES_DB: sammy
+    # Localhost only, and not 5432, so a natively installed Postgres can't
+    # shadow this one.
+    ports:
+      - "127.0.0.1:54329:5432"
+    # Postgres 18+ images keep data under /var/lib/postgresql/<major>/docker,
+    # so the volume mounts the parent directory.
+    volumes:
+      - sammy-pgdata:/var/lib/postgresql
+    healthcheck:
+      # Over TCP: during first-boot init the temporary server only listens on
+      # the Unix socket, so a socket check can report healthy too early.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U sammy -d sammy"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  sammy-pgdata:
