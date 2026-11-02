@@ -20,6 +20,7 @@ import (
 	"github.com/Kerliula/sammy-memory/internal/config"
 	"github.com/Kerliula/sammy-memory/internal/db"
 	"github.com/Kerliula/sammy-memory/internal/jobs"
+	"github.com/Kerliula/sammy-memory/internal/retain"
 	"github.com/Kerliula/sammy-memory/internal/server"
 )
 
@@ -75,9 +76,14 @@ func runServe() error {
 
 	defer pool.Close()
 
+	jobClient, err := jobs.NewInsertClient(pool)
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           server.New(pool),
+		Handler:           server.New(pool, retain.NewService(pool, jobClient)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

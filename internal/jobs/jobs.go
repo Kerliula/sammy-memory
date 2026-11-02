@@ -6,33 +6,56 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+
+	"github.com/Kerliula/sammy-memory/internal/db/sqlc"
 )
 
-// NoopArgs is a placeholder job that proves the River wiring end to end.
-// Real job types (extraction, consolidation) arrive in later phases.
-type NoopArgs struct{}
+// ExtractArgs asks a worker to turn newly retained messages into facts.
+// Retain enqueues it in the same transaction that stores the messages.
+type ExtractArgs struct {
+	WorkspaceID uuid.UUID   `json:"workspace_id"`
+	MessageIDs  []uuid.UUID `json:"message_ids"`
+}
 
 // Kind returns the River job kind stored in river_job.kind.
-func (NoopArgs) Kind() string { return "noop" }
+func (ExtractArgs) Kind() string { return "extract" }
 
-// NoopWorker does nothing and succeeds.
-type NoopWorker struct {
-	river.WorkerDefaults[NoopArgs]
+// ExtractWorker is a stub until fact extraction lands: it loads the job's
+// messages, which proves retain → queue → worker works end to end.
+type ExtractWorker struct {
+	river.WorkerDefaults[ExtractArgs]
+	pool *pgxpool.Pool
 }
 
 // Work implements river.Worker.
-func (w *NoopWorker) Work(_ context.Context, _ *river.Job[NoopArgs]) error {
+func (w *ExtractWorker) Work(ctx context.Context, job *river.Job[ExtractArgs]) error {
+	messages, err := sqlc.New(w.pool).ListMessagesByIDs(ctx, sqlc.ListMessagesByIDsParams{
+		WorkspaceID: job.Args.WorkspaceID,
+		Ids:         job.Args.MessageIDs,
+	})
+	if err != nil {
+		return fmt.Errorf("list messages: %w", err)
+	}
+	if len(messages) == 0 {
+		// Retrying can't make the messages appear, so give up for good.
+		return river.JobCancel(fmt.Errorf("none of the job's %d messages exist", len(job.Args.MessageIDs)))
+	}
+	slog.InfoContext(ctx, "extract stub: messages loaded",
+		"workspace_id", job.Args.WorkspaceID,
+		"messages", len(messages),
+	)
 	return nil
 }
 
 // NewWorkers returns the worker registry with every job type registered.
-func NewWorkers() *river.Workers {
+func NewWorkers(pool *pgxpool.Pool) *river.Workers {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &NoopWorker{})
+	river.AddWorker(workers, &ExtractWorker{pool: pool})
 	return workers
 }
 
@@ -43,7 +66,7 @@ func NewWorkerClient(pool *pgxpool.Pool) (*river.Client[pgx.Tx], error) {
 		Queues: map[string]river.QueueConfig{
 			river.QueueDefault: {MaxWorkers: 10},
 		},
-		Workers: NewWorkers(),
+		Workers: NewWorkers(pool),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create river worker client: %w", err)
