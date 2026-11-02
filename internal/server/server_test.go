@@ -16,7 +16,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestHealthz(t *testing.T) {
-	handler := server.New(testsupport.Pool(t))
+	handler := server.New(testsupport.Pool(t), nil)
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))

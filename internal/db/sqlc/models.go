@@ -8,7 +8,32 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type Message struct {
+	ID            uuid.UUID
+	Seq           pgtype.Int8
+	WorkspaceID   uuid.UUID
+	SessionID     uuid.UUID
+	ParticipantID uuid.UUID
+	Content       string
+	SentAt        time.Time
+	CreatedAt     time.Time
+}
+
+type Participant struct {
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+	Name        string
+	CreatedAt   time.Time
+}
+
+type Session struct {
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+	CreatedAt   time.Time
+}
 
 type Workspace struct {
 	ID        uuid.UUID
